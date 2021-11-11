@@ -485,7 +485,109 @@ co_test  co_test.zip  test.py  update_script
 # 拷贝是手动过程，未来使用容器卷打通，自动拷贝
 ```
 
+### 练习
+
+#### docker 安装nginx
+
+```shell
+# 搜索镜像
+docker search nginx
+# 下载镜像
+docker pull nginx
+# 启动容器
+docker run -d --name nginx01 -p 3344:80 nginx
+# 查询启动容器
+docker ps
+# 本机自测
+root@mtl-unknown659404:/home/wb.duanxingcai# curl localhost:3344
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+# 查询nginx配置文件
+whereis nginx
+```
+
+一个小问题:容器外部修改，内部也跟着修改
+
+#### docker 安装tomcat
+
+```shell
+# 1. 官方使用
+docker run -it --rm tomcat:9.0 
+# 我们之前的启动都是后台，停止之后容器还在运行， 官方是用完就直接删除，测试用完及删除
+
+# 正常逻辑
+# 1. 下载
+docker pull tomcat:9.0
+# 启动运行
+docker run -d --name tomcat-test -p 3355:8080 tomcat:9.0
+# 进入容器
+docker exec -it tomcat-test /bin/bash
+# linux命令少了，没有webapps 因为默认是最小的镜像，把所有不必要的全丢了
+# 方式一
+root@825dcddc0fe1:/usr/local/tomcat# cp -r webapps.dist/* webapps
+# 访问就可以访问到tomcat了
+```
+
+#### docker 部署es+kibana
+
+```shell
+# es 暴露的端口很多 还很耗内存 数据需要挂载到安全目录
+# 官方命令
+# --net somenetwork 网络配置
+docker run -d --name elasticsearch --net somenetwork -p 9200:9200 -p 9300:9300 -e "discovery.tyoe=single-node" elasticsearch:7.6.2
+
+# 启动
+docker run -d --name elasticsearch -p 9200:9200 -p 9300:9300 -e "discovery.tyoe=single-node" elasticsearch:7.6.2
+# 查看cpu状态
+docker stats
+# 添加内存限制 -e参数
+docker run -d --name elasticsearch -p 9200:9200 -p 9300:9300 -e "discovery.tyoe=single-node" -e ES_JAVA_OPTS="-Xms64m -Xms512m" elasticsearch:7.6.2
+# 再次查看就发现内存变小了
+```
+
+### 可视化
+
+portainer(镜像管理工具)
+
+```shell
+# 图形化的 登录才行
+docker run -d -p 8088:9000 --restart=always -v /var/run/docker.sock:/var/run/docker.sock --privileged=true protainer/protainer
+```
+
+Rancher(CI/CD再用)
+
 ## Docker镜像
+
+### 镜像是什么
+
+镜像是卿连吉，可执行的独立软件包，用来打包软件运行环境和基于环境开发的软件，它包含运行某个软件所需的所有内容，包括代码，运行时，库，环境变量等
+
+### docker 镜像加载原理
+
+联合文件系统,一种分层，轻量级，并且高性能的文件系统，一次同时加载多个文件系统，从外面看是一个，内部是一层一层叠加起来形成最终的文件和目录
 
 ## 容器数据卷
 
