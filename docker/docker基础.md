@@ -589,9 +589,514 @@ Rancher(CI/CD再用)
 
 联合文件系统,一种分层，轻量级，并且高性能的文件系统，一次同时加载多个文件系统，从外面看是一个，内部是一层一层叠加起来形成最终的文件和目录
 
+### commit镜像
+
+```shell
+docker commit 提交容器成为新的副本
+# 命令与git类型
+docker commit -m 提交的描述信息 -a 作者 容器id 目标镜像名:[tag]
+```
+
 ## 容器数据卷
 
+### 什么事容器数据卷
+
+#### docker的理念回顾
+
+将应用和环境打包成一个镜像
+
+数据会随着容器的删除而删除，需要数据可以持久化，需要将数据进行持久化，需要容器和宿主机之间可以共享，这就是卷技术
+
+其实就是将容器内的目录，挂载到linux上，其实就是同步机制,容器间也是数据共享的
+
+### 使用数据卷
+
+```shell
+# 直接使用命令挂载 -v 就是双向绑定
+# 删除也是双向的 如果容器停止了也是可以同步的
+docker run -it -v 主机目录:容器内部目录
+```
+
+#### 测试使用
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -it -v /home/wb.duanxingcai/censhi:/home centos /bin/bash
+[root@7b8ed85f676c /]# ls
+bin  dev  etc  home  lib  lib64  lost+found  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
+[root@7b8ed85f676c /]# cd home/
+[root@7b8ed85f676c home]# ls
+[root@7b8ed85f676c home]# touch demo.sh
+[root@7b8ed85f676c home]# ls
+demo.sh
+[root@7b8ed85f676c home]# root@mtl-unknown659404:/home/wb.duanxingcai# LS
+bash: LS：未找到命令
+root@mtl-unknown659404:/home/wb.duanxingcai# ls
+censhi  update_script
+root@mtl-unknown659404:/home/wb.duanxingcai# cd censhi/
+root@mtl-unknown659404:/home/wb.duanxingcai/censhi# ls
+demo.sh
+root@mtl-unknown659404:/home/wb.duanxingcai/censhi# touch demo01.sh
+root@mtl-unknown659404:/home/wb.duanxingcai/censhi# docker ps
+CONTAINER ID   IMAGE                                      COMMAND                  CREATED          STATUS             PORTS                          NAMES
+7b8ed85f676c   centos                                     "/bin/bash"              37 seconds ago   Up 35 seconds                                     ecstatic_cerf
+782ed87417d7   cotest_client_test                         "/docker-entrypoint.…"   5 weeks ago      Up About an hour   80/tcp, 0.0.0.0:1011->81/tcp   cotest_client_test
+47072b7959cf   cotest_server_test                         "/bin/bash"              5 weeks ago      Up About an hour   0.0.0.0:1012->8004/tcp         cotest_service_test
+e1566a5829c8   mtl_datacenter_client_test                 "/docker-entrypoint.…"   7 weeks ago      Up 3 days          0.0.0.0:9015->80/tcp           mtl_datacenter_client_test
+266a2ac69438   mtl_datacenter_service_test                "/bin/bash"              7 weeks ago      Up 3 weeks         0.0.0.0:9014->8003/tcp         mtl_datacenter_service_test
+849b93dfed9f   minio/minio:RELEASE.2021-06-17T00-10-46Z   "/usr/bin/docker-ent…"   7 weeks ago      Up 3 weeks         0.0.0.0:9000->9000/tcp         minio
+255b8277f013   mongo                                      "docker-entrypoint.s…"   7 weeks ago      Up 3 weeks         0.0.0.0:27017->27017/tcp       mongo
+d9989d723810   cotest_service                             "/bin/bash"              2 months ago     Up 3 days          0.0.0.0:8017->8001/tcp         cotest_service
+eb0b6291f576   co_test_client:v0.0.1                      "/docker-entrypoint.…"   2 months ago     Up 6 hours         0.0.0.0:8016->80/tcp           cotest_client
+a9459d51e6df   redis                                      "docker-entrypoint.s…"   3 months ago     Up 3 weeks         0.0.0.0:6379->6379/tcp         redis
+root@mtl-unknown659404:/home/wb.duanxingcai/censhi# docker exec -it ecstatic_cerf /bin/bash
+[root@7b8ed85f676c /]# cd home/
+[root@7b8ed85f676c home]# ls
+demo.sh  demo01.sh
+```
+
+修改只要再本地修改即可，容器内部会自动同步
+
+### mysql数据同步
+
+数据持久化都是需要
+
+#### 获取镜像
+
+```shell
+# 拉取
+docker pull mysql
+# 启动 需要配置密码
+# 官方测试
+docker run --name some-mysql -e MYSQL_ROOT_PASSWORD=123456 mysql:5.7
+
+# 自己测试
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -p 3310:3306 -v /home/wb.duanxingcai/mysql/conf:/etc/mysql/conf.d -v /home/wb.duanxingcai/mysql/data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=123456 --name mysql01 mysql:5.7
+# 启动成功后测试链接
+
+# 测试数据库，发现映射路径是有对应的数据库的那就成功了
+```
+
+### 具名挂载和匿名挂载
+
+```shell
+# 匿名挂载 docker 会自动生成宿主机路径
+-v 容器内路径！ 
+
+# 查看所有卷本地镜像
+root@mtl-unknown659404:/home/wb.duanxingcai# docker volume ls
+DRIVER    VOLUME NAME
+local     ed3a0fda4cec4e44f1b12b0667cb509ba62d3ea8248982b735dde452256964f4 # 匿名的卷 没有写容器外的路径
+local     efe201c48fc28039bce9264699656c126a9573dcc3a43b93bbf38b147228f827
+local     f4ee680d7feafb42cb18f0bea8aadaa10ebda37f9f38612573d0d1417e5dd2ce
+local     f26c3c2105f0aec0763aed4b05ccbb3ff1dcfdea0b8bc823fef3dbecd4cbeb45
+local     f55aa24e2951d33fbf6391c834a9911621dff71e7feccdb700b961154e6fb222
+local     my_worldpress_db_data                                            # 具名挂载  
+local     my_worldpress_wordpress_data
+
+# 具名挂载
+# -v 卷名:容器内路径
+# 查看这个卷
+docker volume inspect 卷名
+root@mtl-unknown659404:/home/wb.duanxingcai# docker volume inspect my_worldpress_db_data
+[
+    {
+        "CreatedAt": "2021-11-06T18:52:26+08:00",
+        "Driver": "local",
+        "Labels": {
+            "com.docker.compose.project": "my_worldpress",
+            "com.docker.compose.version": "1.29.2",
+            "com.docker.compose.volume": "db_data"
+        },
+        "Mountpoint": "/home/docker/volumes/my_worldpress_db_data/_data",
+        "Name": "my_worldpress_db_data",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+
+```
+
+大多数使用的是具名挂载
+
+```shell
+# 区别
+-v 容器内路径 # 匿名挂载
+-v 卷名:容器内路径 # 具名挂载
+-v 宿主机路径:容器内路径 # 指定路径挂载
+```
+
+#### 拓展
+
+```shell
+# 通过-v 容器内路径，ro,rw改变读写权限
+ro 只读    # 只能外部改变
+rw 可读可写 # 默认 可读可写
+
+# 一旦设置这个容器权限，容器对挂载出来的内容就有限定了
+docker run -d -P --name nginx02 -v juming-nginx:/etc/nginx:ro(rw) nginx
+# ro/rw
+```
+
+### 初识dockerfile 
+
+用来构建docker镜像的文件,通过这个脚本可以生成一个镜像
+
+镜像是一层一层的，脚本就是一个一个的
+
+```shell
+# dockerfile文件 指令全是大写
+FROM centos
+VOLUME ["volume01","vloume02"]   # 挂载数据
+
+CMD echo "-------------------"
+CMD /bin/bash
+
+# 这里的每个命令就是层的感觉
+# 实际构建
+oot@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume# docker build -f dockerfile1 -t test .
+Sending build context to Docker daemon  6.656kB
+Step 1/4 : FROM centos
+ ---> 5d0da3dc9764
+Step 2/4 : VOLUME ["volume01","vloume02"]  # 匿名挂载
+ ---> Running in 4fbe58da543f
+Removing intermediate container 4fbe58da543f
+ ---> d66854494691
+Step 3/4 : CMD echo "-------------------"
+ ---> Running in 346161d290d1
+Removing intermediate container 346161d290d1
+ ---> 413075db533d
+Step 4/4 : CMD /bin/bash
+ ---> Running in 8d5140a0090e
+Removing intermediate container 8d5140a0090e
+ ---> 65085e75aad8
+Successfully built 65085e75aad8
+Successfully tagged test:latest
+```
+
+```shell
+# 启动自己生成的容器
+root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume# docker run -it test /bin/bash
+[root@4498c0b1df2f /]# ls -l
+total 0
+lrwxrwxrwx   1 root root   7 Nov  3  2020 bin -> usr/bin
+drwxr-xr-x   5 root root 360 Nov 15 12:05 dev
+drwxr-xr-x   1 root root  66 Nov 15 12:04 etc
+drwxr-xr-x   2 root root   6 Nov  3  2020 home
+lrwxrwxrwx   1 root root   7 Nov  3  2020 lib -> usr/lib
+lrwxrwxrwx   1 root root   9 Nov  3  2020 lib64 -> usr/lib64
+drwx------   2 root root   6 Sep 15 14:17 lost+found
+drwxr-xr-x   2 root root   6 Nov  3  2020 media
+drwxr-xr-x   2 root root   6 Nov  3  2020 mnt
+drwxr-xr-x   2 root root   6 Nov  3  2020 opt
+dr-xr-xr-x 208 root root   0 Nov 15 12:04 proc
+dr-xr-x---   2 root root 162 Sep 15 14:17 root
+drwxr-xr-x  11 root root 163 Sep 15 14:17 run
+lrwxrwxrwx   1 root root   8 Nov  3  2020 sbin -> usr/sbin
+drwxr-xr-x   2 root root   6 Nov  3  2020 srv
+dr-xr-xr-x  13 root root   0 Nov 15 12:04 sys
+drwxrwxrwt   7 root root 171 Sep 15 14:17 tmp
+drwxr-xr-x  12 root root 144 Sep 15 14:17 usr
+drwxr-xr-x  20 root root 262 Sep 15 14:17 var
+drwxr-xr-x   2 root root   6 Nov 15 12:04 vloume02    # 生成镜像的时候自动挂载的，数据卷目录
+drwxr-xr-x   2 root root   6 Nov 15 12:04 volume01
+# 这个卷和外部是有同步的目录 
+# 匿名挂载肯定是hash码
+
+#查看卷挂载的路径
+docker inspect 容器名字
+root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume# docker inspect charming_margulis
+[
+    {
+		....
+		 "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "8fdf7d8d23352552635acb44a7e79ea82780437db8e8bc55e04a81600f2b8e2c",
+                "Source": "/home/docker/volumes/8fdf7d8d23352552635acb44a7e79ea82780437db8e8bc55e04a81600f2b8e2c/_data",
+                "Destination": "vloume02",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            },
+            {
+                "Type": "volume",
+                "Name": "eb8db928accfbb954a4878d65dd9c1a0edfe1894c63dd23f98adfe961e40e8bf",
+                "Source": "/home/docker/volumes/eb8db928accfbb954a4878d65dd9c1a0edfe1894c63dd23f98adfe961e40e8bf/_data",
+                "Destination": "volume01",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+```
+
+这种方式用的多，假设没有挂载卷，需要自己配置，如果dockerfile时，启动容器不需要-v了
+
+### 数据卷容器
+
+两个mysql同步数据
+
+```shell
+# --volume-from
+# 测试使用 启动3个容器测试
+
+root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume# docker run -it --name docker01 test
+[root@3c75c4c26037 /]# ls
+bin  dev  etc  home  lib  lib64  lost+found  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var  vloume02  volume01
+[root@3c75c4c26037 /]# root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume#
+root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume# docker run -it --name docker02 --volume-from docker01 test
+unknown flag: --volume-from
+See 'docker run --help'.
+root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume# docker run -it --name docker02 --volumes-from docker01 test
+[root@02388c9144ba /]# ls
+bin  dev  etc  home  lib  lib64  lost+found  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var  vloume02  volume01
+# 中间去docker01的/volume01下中创建一个文件demo01.sh
+[root@02388c9144ba /]# cd volume01/
+[root@02388c9144ba volume01]# ls
+demo01.sh
+[root@02388c9144ba volume01]# root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume#
+root@mtl-unknown659404:/home/wb.duanxingcai/docker-test-volume# docker run -it --name docker03 --volumes-from docker01 test
+[root@76f5e05be8ef /]# cd volume01/
+[root@76f5e05be8ef volume01]# ls
+demo01.sh
+[root@76f5e05be8ef volume01]# touch docker03.sh
+[root@76f5e05be8ef volume01]#
+# 去docekr01中去查看文件
+```
+
+```shell
+# 删除任何一个容器，不影响其余容器的数据，就是数据备份的感觉
+```
+
+mysql的操作
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -p 3310:3306 -v /home/wb.duanxingcai/mysql/conf:/etc/mysql/conf.d -v /home/wb.duanxingcai/mysql/data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=123456 --name mysql01 mysql:5.7
+
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -p 3310:3306 -e MYSQL_ROOT_PASSWORD=123456 --name mysql00 --volumes-from mysql01 mysql:5.7
+
+# 这个时候两个容器数据就是同步的
+```
+
+结论:容器之间配置信息的传递，数据卷容器的生命周期，一直持续到没有容器使用为止
+
+一旦持久化到了本地，容器删除，本地数据是不会被删除
+
 ## DockerFile
+
+用来构建docker镜像的文件,命令参数脚本
+
+构建步骤
+
+1. 编写一个dockerfile文件
+2. docker build构建镜像
+3. docker run 运行一个镜像
+4. docker push 发布镜像
+
+### DockerFile构建过程
+
+#### 基础知识
+
+每个保留关键字(都必须是大写字母)
+
+执行从上到下
+
+#好表示注释
+
+每个指令都会创建一个镜像层并提交
+
+dockerfile是面向开发的，我们以后要发布项目，做镜像，就需要编写dockerfile文件，这个文件简单
+
+DockerFile：构建文件，定义了一切的步骤，源代码
+
+DockerImages:DockerFile构建生成的镜像，最终发布和运行的产品
+
+Docker容器：docker镜像运行提高服务的
+
+### DockerFile的指令
+
+```python
+FROM    			# 基础镜像,一切从这开始
+MAINTAINER			# 镜像是谁写的，姓名+邮箱
+RUN					# 镜像构建的时候需要运行的命令
+ADD					# 添加内容,COPY文件，会自动解压
+WORKER				# 工作目录,启动会默认进入的目录
+VOLUME				# 容器卷，挂载的目录位置
+EXPOSE				# 指定对外暴露的端口
+CMD					# 指定这个容器启动的时候要运行的命令,只有最后一个会生效，可被替代
+ENTRYPOINT			# 指定这个容器启动的时候要运行的命令，可追加命令
+ONBUILD				# 当构构建一个被继承DockerFile这个时候，会运行ONBUILD的指令
+COPY				# 将文件拷贝到镜像中
+ENV					# 构建的时候设置环境变量
+```
+
+### 实战测试
+
+#### 自己的centos
+
+```python
+# 编写文件
+FROM centos
+MAINTAINER xxx<xxx@163.com>
+
+ENV MYPATH /usr/local
+WORKDIR $MYPATH
+
+RUN yum -y install vim
+RUN yum -y install net-tools
+
+EXPOSE 81
+CMD echo $MYPATH
+CMD echo "---------"
+CMD /bin/bash
+
+# 构建自己的镜像
+# -f 是dockerfile的文件路径 -t是镜像的名字
+docker build -f mydockerfile -t mycentos-1 .
+
+# 测试运行
+docker run -it mycentos-1
+# 此时已经有了自己的命令操作
+
+# 查看镜像构建过程
+root@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# docker history 43d3db323c6d
+IMAGE          CREATED         CREATED BY                                      SIZE      COMMENT
+43d3db323c6d   5 minutes ago   /bin/sh -c #(nop)  CMD ["/bin/sh" "-c" "/bin…   0B
+5048b5e42441   5 minutes ago   /bin/sh -c #(nop)  CMD ["/bin/sh" "-c" "echo…   0B
+020c28329eaf   5 minutes ago   /bin/sh -c #(nop)  CMD ["/bin/sh" "-c" "echo…   0B
+bb126bfac927   5 minutes ago   /bin/sh -c #(nop)  EXPOSE 81                    0B
+38d14e09f111   5 minutes ago   /bin/sh -c yum -y install net-tools             25.7MB
+f080fcbc3015   5 minutes ago   /bin/sh -c yum -y install vim                   62.1MB
+1f1dc341e8db   5 minutes ago   /bin/sh -c #(nop) WORKDIR /usr/local            0B
+f71f1e0e5991   5 minutes ago   /bin/sh -c #(nop)  ENV MYPATH=/usr/local        0B
+8c53eda216e2   5 minutes ago   /bin/sh -c #(nop)  MAINTAINER xxx<xxx@163.co…   0B
+5d0da3dc9764   2 months ago    /bin/sh -c #(nop)  CMD ["/bin/bash"]            0B
+<missing>      2 months ago    /bin/sh -c #(nop)  LABEL org.label-schema.sc…   0B
+<missing>      2 months ago    /bin/sh -c #(nop) ADD file:805cb5e15fb6e0bb0…   231MB
+# history是可以查询镜像的制作过程
+```
+
+> ### CMD和ENTRYPOINT的区别
+
+测试cmd
+
+```shell
+# 编写dockerfile文件
+FROM centos
+CMD ["ls","-a"]
+
+# 构建镜像
+docker build -f dockerfile-cmd-test -t mycentos-3 .
+# 启动
+docker run mycentos-3
+.
+..
+.dockerenv
+bin
+.....
+
+# 追加一个命令-l ls -al
+oot@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# docker run mycentos-3 -l
+docker: Error response from daemon: OCI runtime create failed: container_linux.go:380: starting container process caused: exec: "-l": executable file not found in $PATH: unknown.
+ERRO[0001] error waiting for container: context canceled
+
+# cmd的情况下 -l替换了 a 没有ls-l所有报错
+
+# 正确做法
+oot@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# docker run mycentos-3 ls -al
+total 0
+drwxr-xr-x   1 root root   6 Nov 17 12:02 .
+drwxr-xr-x   1 root root   6 Nov 17 12:02 ..
+-rwxr-xr-x   1 root root   0 Nov 17 12:02 .dockerenv
+lrwxrwxrwx   1 root root   7 Nov  3  2020 bin -> usr/bin
+drwxr-xr-x   5 root root 340 Nov 17 12:02 dev
+drwxr-xr-x   1 root root  66 Nov 17 12:02 etc
+drwxr-xr-x   2 root root   6 Nov  3  2020 home
+....
+```
+
+测试ENTRYPOINT
+
+```shell
+# 编写dockerfile dockerfile-cmd-entorypoint
+root@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# cat dockerfile-cmd-entorypoint
+FROM centos
+ENTRYPOINT ["ls","-a"]
+# 构建镜像
+root@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# docker build -f dockerfile-cmd-entorypoint -t mycentos4 .
+Sending build context to Docker daemon  18.94kB
+Step 1/2 : FROM centos
+ ---> 5d0da3dc9764
+Step 2/2 : ENTRYPOINT ["ls","-a"]
+ ---> Running in 038245cd6e42
+Removing intermediate container 038245cd6e42
+ ---> a70a4dc910db
+Successfully built a70a4dc910db
+Successfully tagged mycentos4:latest
+# 运行容器
+root@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# docker run a70a4dc910db
+srv
+sys
+tmp
+usr
+var
+# 追加命令 是直接拼接的
+root@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# docker run a70a4dc910db -l
+total 0
+drwxr-xr-x   1 root root   6 Nov 17 12:05 .
+drwxr-xr-x   1 root root   6 Nov 17 12:05 ..
+-rwxr-xr-x   1 root root   0 Nov 17 12:05 .dockerenv
+lrwxrwxrwx   1 root root   7 Nov  3  2020 bin -> usr/bin
+drwxr-xr-x   5 root root 340 Nov 17 12:05 dev
+
+```
+
+> #### dockerfile中很多相同
+
+### 做一个Tomcat镜像
+
+1 准备镜像文件tomcat压缩包，jdk的压缩包
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# vim Dockerfile
+root@mtl-unknown659404:/home/wb.duanxingcai/dockerfile# cat Dockerfile
+FROM centos
+MAINTAINET kuansheng<12456798@q.com>
+COPY readme.txt /usr/local/readme.txt
+ADD jdkXXXX.tar.gz     /usr/local/              # jdk的压缩包
+ADD apatchXxxxxx.tar.gz   /usr/local/			# tomacat的压缩包
+
+RUN yum -y install vim
+
+ENV MYPATH /usr/local
+WORKDIR $MYPATH
+
+ENV JAVA_HOME /usr/local/jdk1.8.0_11
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV CATALINA_HOME /usr/local/apaxx-tomcat
+ENV CATALINA_BASH /usr/local/xxxx
+ENV PATH $PATH:$JAVA_HOME/bin:$CATALINA_HOME/lib:$CATALINA_HOME/bin
+
+EXPOSE 8080
+
+CMD /usr/local/apa-tomcaxxxx/bin/startup.sh && tail -F /url/local/apaxx/bin/logs/cataline.out
+```
+
+2 构建镜像
+
+```shell
+docker build -t xxx .
+```
+
+3 启动项目
+
+```shell
+docker run -itd -p xxx:8080 -v 目录挂载 --name xxx xxx
+```
+
+
 
 ## Docker网络原理
 
