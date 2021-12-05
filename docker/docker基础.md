@@ -1096,14 +1096,1892 @@ docker build -t xxx .
 docker run -itd -p xxx:8080 -v 目录挂载 --name xxx xxx
 ```
 
+### 发布自己的镜像
+
+> Docker-Hub
+
+1 地址https://hup.docker.com/ 注册自己的账号
+
+2 确定这个账号可以登录
+
+3 在我们的服务器提交镜像
+
+```shell
+# 先登录
+docker login -u username -p password
+# 登出
+docker logout
+# 在push 
+docker push 镜像:[tag] 
+# 给镜像加标签、
+docker tag 镜像id name:[tag]
+```
+
+> 阿里云上
+
+1 登录阿里云,找到容器镜像服务
+
+2 创建命令空间
+
+3 创建容器镜像
+
+4 创建镜像仓库,仓库选择本地
+
+5 使用操作指南
+
+> 备份与恢复
+
+```shell
+# 备份
+docker save 镜像 -o 路径
+# 恢复 
+docker load -o 路径
+```
+
 
 
 ## Docker网络原理
 
+### 理解Docker0网络
+
+> 测试
+
+![](.\img\POPO20211120-124846.png)
+
+
+
+```shell
+# 启动容器
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -P --name tomcat01 tomcat
+0c1f65e5cbd67291ba3913bfc374026a5afea50e8958c967e97e676cd5aa9942
+
+# 查看容器网络地址
+root@mtl-unknown659404:/home/wb.duanxingcai# docker exec -it tomcat01 ip addr
+
+# 查看地址
+docker inspect
+root@mtl-unknown659404:/home/wb.duanxingcai# docker inspect tomcat01
+....
+"Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "NetworkID": "938e53d6b996f6584828989948b394ecac751f6a2dd607e440f33a7e902b66eb",
+                    "EndpointID": "5d247689505ab3512793f7feb618cc5ae2dad1aa8dd27a26e59c2b93e6a58a5b",
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.11",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "MacAddress": "02:42:ac:11:00:0b",
+                    "DriverOpts": null
+                }
+
+
+# linux是可以ping通docker容器地址
+root@mtl-unknown659404:/home/wb.duanxingcai# ping 172.17.0.11
+PING 172.17.0.11 (172.17.0.11) 56(84) bytes of data.
+64 bytes from 172.17.0.11: icmp_seq=1 ttl=64 time=0.257 ms
+64 bytes from 172.17.0.11: icmp_seq=2 ttl=64 time=0.077 ms
+^C
+--- 172.17.0.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 17ms
+rtt min/avg/max/mdev = 0.077/0.167/0.257/0.090 ms
+
+```
+
+> 原理
+
+1 我们每启动一个容器，docker就会给docker容器分配一个ip,我们只要安装docker，就会有一个网卡docker0桥接技术,使用的技术是evth-pair技术
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc mq state UP group default qlen 1000
+    link/ether 52:54:00:18:06:ca brd ff:ff:ff:ff:ff:ff
+    inet 10.215.0.116/28 brd 10.215.0.127 scope global dynamic eth0
+       valid_lft 63570sec preferred_lft 63570sec
+3: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue state UP group default
+    link/ether 02:42:12:c7:29:f1 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+       valid_lft forever preferred_lft forever
+523: br-84d63be51efa: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
+    link/ether 02:42:a8:1e:3e:0b brd ff:ff:ff:ff:ff:ff
+    inet 172.19.0.1/16 brd 172.19.255.255 scope global br-84d63be51efa
+       valid_lft forever preferred_lft forever
+# 以下是容器内部的网络相关配置
+407: vethd9e3941@if406: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether 02:71:38:51:63:b2 brd ff:ff:ff:ff:ff:ff link-netnsid 4
+409: veth0770aad@if408: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether 3e:91:be:be:e9:c5 brd ff:ff:ff:ff:ff:ff link-netnsid 5
+413: veth985726c@if412: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether 4a:94:10:de:dd:58 brd ff:ff:ff:ff:ff:ff link-netnsid 7
+419: veth6db24fe@if418: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether 96:86:b2:10:6a:8d brd ff:ff:ff:ff:ff:ff link-netnsid 6
+713: veth8836e56@if712: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether 26:c1:e4:79:31:7e brd ff:ff:ff:ff:ff:ff link-netnsid 8
+715: veth3ff1ede@if714: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether fa:e1:05:be:f8:7c brd ff:ff:ff:ff:ff:ff link-netnsid 2
+717: veth63b68ac@if716: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether e6:40:62:a6:16:68 brd ff:ff:ff:ff:ff:ff link-netnsid 3
+719: vethdbcf035@if718: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether 22:c3:e4:fe:3f:b8 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+721: vethe739e06@if720: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether a2:2a:a2:61:2d:53 brd ff:ff:ff:ff:ff:ff link-netnsid 1
+725: veth8bd609d@if724: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue master docker0 state UP group default
+    link/ether 7e:06:ea:ed:0b:e6 brd ff:ff:ff:ff:ff:ff link-netnsid 9
+506: br-fc854ae4c3b8: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
+    link/ether 02:42:60:8e:c1:dd brd ff:ff:ff:ff:ff:ff
+    inet 172.18.0.1/16 brd 172.18.255.255 scope global br-fc854ae4c3b8
+       valid_lft forever preferred_lft forever
+
+```
+
+```python
+"""
+我们发现这个容器带来的网卡是一对一对的
+evth-pair 就是一对的虚拟设备接口，他们都是成对出现的，一段连着协议，一段彼此先来
+正因为有这个特性，evth-pair 充当一个桥梁，连着各种虚拟网络设备
+OpenStac Docker 容器之间的链接，Ovs之间的连接都是使用evth-pair技术
+"""
+```
+
+```python
+"""
+两个容器之间的网络操作，地址相连接需要使用,docker内部的地址，获取移除服务器的防火墙也行
+容器与容器之间相关通信的,两个容器之间有个中间的桥(docker0)，两个网络都接着桥(docker0)，然后再桥(docker0)上通
+docker0就相当于路由器
+"""
+```
+
+![](.\img\POPO20211120-131227.png)
+
+> 小结 
+
+Docker使用的是linux的桥接,docker 的所有接口都是虚拟的，因为转发效率高
+
+![](.\img\POPO20211120-131719.png)
+
+> #### 场景 
+
+通过名字来访问服务
+
+```shell
+# 启动两个tomcat01和tomcat02
+# 直接ping是不通的
+docker exec -it timcat02 ping tomcat01 
+# 需要加参数--link  不建议使用
+docker run -d -P --name tomcat03 --link tomcat02 tomcat
+# 此时在ping 就可以ping通了
+docker exec -it timcat03 ping tomcat02 
+# 反向是不能ping通的
+docker exec -it timcat02 ping tomcat03
+
+```
+
+探究
+
+```shell
+# 查看容器内部配置
+dockerexec -it tomcat03 cat /etc/hosts
+# 这里面有绑定容器的操作
+```
+
+现在不建议使用--link了
+
+自定义网络，不适用docker0
+
+docker0不支持容器名链接访问
+
+### 容器互联/自定义网络
+
+> 查看所有网络
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network ls
+NETWORK ID     NAME                    DRIVER    SCOPE
+938e53d6b996   bridge                  bridge    local
+fc854ae4c3b8   composetest_default     bridge    local
+daa720d57435   host                    host      local
+84d63be51efa   my_worldpress_default   bridge    local
+e0d76bb82b39   none                    null      local
+
+```
+
+#### 网络模式
+
+bridge:桥接,docker搭桥(默认|自己创建的也是)
+
+none:不配置网络
+
+host:和宿主机共享网络
+
+container:容器内网络连通(用的少|局限很大)
+
+#### 测试
+
+```shell
+# 我们直接启动的命令是有默认参数--net bright,也就是我们的docker0
+docker run -d -P --name tomcat01 tomcat
+# 等价于
+docker run -d -P --name tomcat01 --net bridge tomcat
+# 但是不适用与服务名的通信
+
+# 自定义网络
+# --driver bridge 桥接方式
+# --subnet 192.168.0.0/16 ip数量65535
+# --gateway 192.168.0.1 网关ip
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network create --driver bridge --subnet 192.168.0.0/16 --gateway 192.168.0.1 mynet
+b7dcda9ff9824886f1155a919b7b0130e430bc1564114bf3ac871985456f0f7d
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network ls
+NETWORK ID     NAME                    DRIVER    SCOPE
+938e53d6b996   bridge                  bridge    local
+fc854ae4c3b8   composetest_default     bridge    local
+daa720d57435   host                    host      local
+84d63be51efa   my_worldpress_default   bridge    local
+b7dcda9ff982   mynet                   bridge    local
+e0d76bb82b39   none                    null      local
+
+# 查看自己网络配置
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network inspect  mynet
+[
+    {
+        "Name": "mynet",
+        "Id": "b7dcda9ff9824886f1155a919b7b0130e430bc1564114bf3ac871985456f0f7d",
+        "Created": "2021-11-20T14:36:16.038852899+08:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "192.168.0.0/16",
+                    "Gateway": "192.168.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {},
+        "Options": {},
+        "Labels": {}
+    }
+]
+
+# 放入两个容器
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -P --name tomcat-net-01 --net mynet tomcat
+1db050f45ea62eb2f68ec04c3939ce615b039a24278227c6d493666806552faf
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -P --name tomcat-net-02 --net mynet tomcat
+0b2f3762a03490793f1ae3143190086c0370f76f2698ba974b5f78fa472677ff
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network inspect  mynet
+[
+    {
+        "Name": "mynet",
+        "Id": "b7dcda9ff9824886f1155a919b7b0130e430bc1564114bf3ac871985456f0f7d",
+        "Created": "2021-11-20T14:36:16.038852899+08:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "192.168.0.0/16",
+                    "Gateway": "192.168.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        # 可以看到有网络
+        "Containers": {
+            "0b2f3762a03490793f1ae3143190086c0370f76f2698ba974b5f78fa472677ff": {
+                "Name": "tomcat-net-02",
+                "EndpointID": "8283878473bfd056a93d56df1926189178fb90dea90772f62c29dd2c22a3f903",
+                "MacAddress": "02:42:c0:a8:00:03",
+                "IPv4Address": "192.168.0.3/16",
+                "IPv6Address": ""
+            },
+            "1db050f45ea62eb2f68ec04c3939ce615b039a24278227c6d493666806552faf": {
+                "Name": "tomcat-net-01",
+                "EndpointID": "7de5191830f531e1f83d3ea6d3bb9f1221e5c0bb0d55b42428a2ce2de959b4e1",
+                "MacAddress": "02:42:c0:a8:00:02",
+                "IPv4Address": "192.168.0.2/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+    }
+]
+
+# 这时在去服务ping就好了
+docker exec -it tomcat-net-01 ping tomcat-net-02
+# 这样就可以ping通了
+自定义的就可以使用啦
+```
+
+自定义已经帮助我们维护好了，推荐使用
+
+#### 网络连通的操作
+
+```shell
+# 创建两个容器 在docker0
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -P --name tomcat-01 tomcat
+8028d035b5d96fa51a36b9c665cd058a8d3778ab81fbdef606ada5dc6e73b7ac
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -P --name tomcat-02 tomcat
+bcf92a0f6a7b1542c8c38ae4b662dffe92bf74fe2fb43c0bc00078b65d483fa8
+
+# 刚刚在mynet也有两个容器
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -P --name tomcat-net-01 --net mynet tomcat
+1db050f45ea62eb2f68ec04c3939ce615b039a24278227c6d493666806552faf
+root@mtl-unknown659404:/home/wb.duanxingcai# docker run -d -P --name tomcat-net-02 --net mynet tomcat
+0b2f3762a03490793f1ae3143190086c0370f76f2698ba974b5f78fa472677ff
+
+# 实现两个不同网段之间的连通
+# tomcat-01   <-->tomcat-net-02
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network connect mynet tomcat-01
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network inspect mynet
+[
+    {
+        "Name": "mynet",
+        "Id": "b7dcda9ff9824886f1155a919b7b0130e430bc1564114bf3ac871985456f0f7d",
+        "Created": "2021-11-20T14:36:16.038852899+08:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "192.168.0.0/16",
+                    "Gateway": "192.168.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {
+            "0b2f3762a03490793f1ae3143190086c0370f76f2698ba974b5f78fa472677ff": {
+                "Name": "tomcat-net-02",
+                "EndpointID": "8283878473bfd056a93d56df1926189178fb90dea90772f62c29dd2c22a3f903",
+                "MacAddress": "02:42:c0:a8:00:03",
+                "IPv4Address": "192.168.0.3/16",
+                "IPv6Address": ""
+            },
+            "1db050f45ea62eb2f68ec04c3939ce615b039a24278227c6d493666806552faf": {
+                "Name": "tomcat-net-01",
+                "EndpointID": "7de5191830f531e1f83d3ea6d3bb9f1221e5c0bb0d55b42428a2ce2de959b4e1",
+                "MacAddress": "02:42:c0:a8:00:02",
+                "IPv4Address": "192.168.0.2/16",
+                "IPv6Address": ""
+            },
+            # 将刚刚的连的容器加入进来
+            "8028d035b5d96fa51a36b9c665cd058a8d3778ab81fbdef606ada5dc6e73b7ac": {
+                "Name": "tomcat-01",
+                "EndpointID": "61facba6cf62e6b86515f11e1ae0bbb847e4b600fcf412548632ab56444463b7",
+                "MacAddress": "02:42:c0:a8:00:04",
+                "IPv4Address": "192.168.0.4/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+    }
+]
+# tomcat-01 此时的容器有两个ip一个是在docker0下,一个是在mynet下的ip
+# 类似阿里云的公网和私网Ip
+# 此时 tomcat-01可以ping通mynet下的所有容器
+```
+
+### 实战--部署redis集群
+
+![](\img\POPO20211120-145635.png)
+
+创建6个redis
+
+```shell
+# 创建配置文件及卷
+for port in $(seq 1 6); \
+do \
+mkdir -p /mydata/redis/node-${port}/conf
+touch /mydata/redis/node-${port}/conf/redis.conf
+cat  EOF /mydata/redis/node-${port}/conf/redis.conf
+port 6379 
+bind 0.0.0.0
+cluster-enabled yes 
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+cluster-announce-ip 172.38.0.1${port}
+cluster-announce-port 6379
+cluster-announce-bus-port 16379
+appendonly yes
+EOF
+done
+
+# 模板
+docker run -p 637${port}:6379 -p 1637${port}:16379 --name redis-${port} \
+    -v /mydata/redis/node-${port}/data:/data \
+    -v /mydata/redis/node-${port}/conf/redis.conf:/etc/redis/redis.conf \
+    -d --net redis --ip 172.38.0.1${port} redis:5.0.9-alpine3.11 redis-server /etc/redis/redis.conf
+
+
+# 启动容器 6 台
+docker run -p 6371:6379 -p 16371:16379 --name redis-1 \
+    -v /mydata/redis/node-1/data:/data \
+    -v /mydata/redis/node-1/conf/redis.conf:/etc/redis/redis.conf \
+    -d --net redis --ip 172.38.0.11 redis:5.0.9-alpine3.11 redis-server /etc/redis/redis.conf
+
+# 进入容器内部的data下创建集群
+# 创建集群
+redis-cli --cluster create 172.38.0.11:6379 172.38.0.12:6379 172.38.0.13:6379 172.38.0.14:6379 172.38.0.15:6379 172.38.0.16:6379    --cluster-replicas 1
+```
+
+
+
 ## IDEA整合Docker
+
+#### Dockerfile
+
+```yaml
+FROM java:8
+COPY *.jar /app.jar
+CMD ["--server.port=8080"]
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","/app.jar"]
+```
+
+## 小结
+
+![](.\img\POPO20211123-190245.png)
 
 ## Docker Compose
 
+地址:https://docs.docker.com/compose/
+
+### 简介
+
+docker官方的开源项目，实现对容器集群的快速编排，主要功能就是定义和运行多个docker容器的应用
+
+原来的操作，自己手动创建容器，启动容器，重启服务等
+
+docker 
+
+dockerFile build --> run 手动操作，单个容器
+
+Docker Compose 来轻松高效的管理容器，就是可以定义多个容器
+
+> ### 官网介绍
+
+定义，运行容器
+
+YAML file 配置文件
+
+简单的命令
+
+Compose is a tool for defining and running multi-container Docker applications. With Compose, you use a YAML file to configure your application’s services. Then, with a single command, you create and start all the services from your configuration. To learn more about all the features of Compose, see [the list of features](https://docs.docker.com/compose/#features).
+
+所有的环境都可以使用
+
+Compose works in all environments: production, staging, development, testing, as well as CI workflows. You can learn more about each case in [Common Use Cases](https://docs.docker.com/compose/#common-use-cases).
+
+Using Compose is basically a three-step process:
+
+#### 三步骤
+
+1. Define your app’s environment with a `Dockerfile` so it can be reproduced anywhere.
+   1. Dockerfile保证我们的项目在任何地方都可以运行
+2. Define the services that make up your app in `docker-compose.yml` so they can be run together in an isolated environment.
+   1. services 服务
+   2. docker-compose.yml 这个文件书写方式
+3. Run `docker compose up` and the [Docker compose command](https://docs.docker.com/compose/cli-command/) starts and runs your entire app. You can alternatively run `docker-compose up` using the docker-compose binary.
+   1. 启动docker-compose
+   2. 作用批量容器编排
+
+> ### 自己理解
+
+Compose是Docker是官方的开源项目，需要安装
+
+Dockerfile让程序在任何地方运行。web服务，redis,mysql.nginx等多个容器启停麻烦
+
+Compose
+
+```yml
+version: "3.9"  # optional since v1.27.0
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/code
+      - logvolume01:/var/log
+    links:
+      - redis
+  redis:
+    image: redis
+volumes:
+  logvolume01: {}
+```
+
+docker-compose up 100个服务，可以启动文件中的所有服务
+
+Compose:重要的两个概念
+
+服务，services,其实就是一个一个的容器，应用
+
+项目,一组关联的容器，mysql,web,nginx,redis等服务
+
+### 安装
+
+```shell
+# 1. 下载可能下载慢
+sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+# 1.1 国内镜像 块些
+sudo curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.5/docker-compose-`uname -s`-`uname -m` ->/usr/local/bin/docker-compos
+# 2. 授权
+sudo chmod +x /usr/local/bin/docker-compose
+# 3. 设置软连接
+ sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+# 4. 测试
+root@mtl-unknown659404:/home/wb.duanxingcai/update_script# docker-compose --version
+docker-compose version 1.29.2, build 5becea4c
+
+```
+
+### 命令模板
+
+地址:https://vuepress.mirror.docker-practice.com/
+
+服务(service):一个服务就是一个容器
+
+项目(Project):有多个服务共同组成具有相同业务逻辑单元，在docker-compose.yml中定义
+
+#### build
+
+用来指定docker指定的目录, 将dockerfile打包成镜像，然后运行镜像,
+
+```yml
+version: "3.8"
+
+services:
+
+  demo01:
+    build:  # 在启动服务时 先将build命令中指定dockerfile打包成镜像，在运行该镜像
+      context: demo   # 指定上下文路径 其实就是dockerfile所在的目录 相对于docker-compose的位置,也可以是绝对路径
+      dockerfile: Dockerfile  # 明确指定dockerfile的文件名字 如果是Dockerfile则可以不用写
+    container_name: demo  # 镜像构建好 打包成容器的名字
+    ports:
+    - "8080:8080"
+    networks:
+      - hello
+```
+
+
+
+#### command
+
+容器启动后默认执行的命令
+
+```yml
+command: echo "hello world" # cmd
+```
+
+#### container_name
+
+指定容器名称,默认会使用`项目名称_服务名称_序号`
+
+```yml
+container_name: docker-web-container
+```
+
+使用容器名称后,该服务无法进行扩展(scale),Docker不允许多个容器具有相同的名称
+
+#### deoends_on
+
+解决容器启动的依赖，启动的先后问题,先启动redis,db再启动web
+
+```yml
+version: "3"
+
+services:
+ web:
+  build: .
+  depends_on:
+   - db
+   - redis
+  
+ redis:
+  image: redis
+ 
+ db:
+  image: postgres
+  
+```
+
+
+
+#### env_file
+
+从文件中获取环境变量，可以单独的文件路径或者列表
+
+如果通过docker-compose -f FILE方式来指定Compose模板文件，则env_file中变量的路径会基于模板文件路径
+
+如果有环境变量名称与environment指令冲突，则按照惯例，以后者为准
+
+```yml
+env_file: .env
+
+env_file:
+ - ./common.env
+ - ./apps/web.env
+ - ./opt/secrets.env
+```
+
+环境变量每一行必须符合格式,支持#开头的注释
+
+```yml
+PROG_ENV=development
+MYSQL_ROOT_PASSWORD=root
+```
+
+
+
+#### environment
+
+设置环境变量。你可以使用数组或者字典两种格式
+
+只给定名称的变量会自动获取运行Compose主机对应变量的值,可以用来防止泄露不必要的数据
+
+```yml
+environment:
+ RACK_ENV: development
+ SESSION_SECRET:
+ 
+environment:
+ - RACK_ENV=development
+ - SESSION_SECRET
+```
+
+对于值是no,yes等一定要使用字符串，避免出现不必要的问题
+
+#### healthcheck
+
+通过命令检查容器是否运行健康 类似心跳检查
+
+```yml
+healthckeck:
+ test: ["CMD"，"curl","-f","http://localhost"]
+ interval: 1m30s
+ timeout: 10s
+ retries: 3
+```
+
+
+
+#### image
+
+知道为镜像或者镜像ID，如果本地不存在，compose会去拉去这个镜像
+
+```yaml
+image: python3.6
+image: eb40f396381c
+```
+
+#### networks
+
+配置链接的网络
+
+```yml
+version: "3.8"
+
+services:
+  some-service:
+  	networks:
+  	 - some-network
+  	 - other-network
+  	 
+networks:
+ some-network:
+ other-network:
+   external: # 使用自定义桥名
+     false  # true 确定使用自定义桥名 启动服务之前的手动创建桥名 不推荐使用 docker network create hello
+```
+
+
+
+#### ports
+
+暴露端口信息 其实就是完成端口映射 ，端口可以写多个
+
+宿主机端口:容器端口 或者仅仅知道容器端口，宿主机可以会随机选择
+
+```yml
+ports: 
+ - "8000"
+ - "6379:6379"
+ - "0.0.0.0:8000:8000"
+```
+
+#### sysctls
+
+配置容器内核参数
+
+```yml
+sysctls:
+ net.core.somaxconn: 1024
+ net.ipv4.tcp_syncookies: 0
+
+sysctls:
+ - net.core.somaxconn=1024
+ - net.ipv4.tcp_syncookies=0
+```
+
+
+
+#### ulimits
+
+指定容器ulimits的限制
+
+指定最大进程数65535,文件句柄20000和40000
+
+```yml
+ulimits:
+ nproc: 65536
+ nofile:
+  soft: 20000
+  hard: 40000 
+```
+
+
+
+#### volumns
+
+数据卷挂载路径，可以设置为 宿主机路径:容器内部路径，或者数据卷名称,并且可以设置访问模式
+
+```yml
+volumns:
+ - /var/lib/mysql # 自动映射
+ - cache:/tmp/cache
+ - ~/configs:/etc/configs/:ro # 只读 绝对路径映射
+```
+
+如果路径为数据卷名称，必须在文件中配置数据卷
+
+```yml
+version: "3.8"
+
+services:
+  tomcat: # 服务名称
+    image: tomcat:8.0-jre8 # 镜像名称
+    ports: # 端口映射
+    - "8080:8080"
+    volumes:
+    - mysql_data:/var/lib/mysql
+
+volumes: # 指定数据卷 这是使用了卷名 
+  mysql_data: # 只需要声明一下就好了 最终卷名是 项目名_mysql_data
+      external: # 使用自定义卷名
+      true  # 确定使用自定义卷名 启动服务之前的手动创建卷名 不推荐使用 docker volume create mysql_data
+```
+
+### 常用命令
+
+地址:https://vuepress.mirror.docker-practice.com/
+
+1 命令对象与格式
+
+2 命令选项
+
+3 命令使用说明
+
+#### up
+
+docker-compose up
+
+构建 运行 启动服务
+
+#### down
+
+docker-compose down
+
+停止 up命令启动的服务，并移除网络
+
+#### exec
+
+docker-compose exec (里面的服务名)
+
+进入指定的容器
+
+#### ps
+
+docker-compose ps
+
+列出所有的容器
+
+#### restart
+
+docker-compose restart
+
+重启项目中你容器
+
+#### rm
+
+docker-compose rm 
+
+移除项目中的容器
+
+#### start
+
+docker-compose start
+
+启动项目中的容器
+
+#### stop
+
+docker-compose stop
+
+停止项目中的容器
+
+#### top
+
+容器内部的信息
+
+#### pause
+
+暂停服务
+
+#### unpause
+
+恢复服务
+
+#### logs
+
+查看日志
+
+### 体验
+
+地址:https://docs.docker.com/compose/gettingstarted/
+
+官网案例 python应用 ,计数器，redis
+
+1 应用 app.py
+
+创建文件夹
+
+```shell
+ mkdir composetest
+ cd composetest
+```
+
+写服务
+
+```python
+import time
+
+import redis
+from flask import Flask
+
+app = Flask(__name__)
+cache = redis.Redis(host='redis', port=6379)
+
+def get_hit_count():
+    retries = 5
+    while True:
+        try:
+            return cache.incr('hits')
+        except redis.exceptions.ConnectionError as exc:
+            if retries == 0:
+                raise exc
+            retries -= 1
+            time.sleep(0.5)
+
+@app.route('/')
+def hello():
+    count = get_hit_count()
+    return 'Hello World! I have been seen {} times.\n'.format(count)
+```
+
+依赖包
+
+```python
+flask
+redis
+```
+
+2 Dockerfile应用打包为镜像
+
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM python:3.7-alpine
+WORKDIR /code
+ENV FLASK_APP=app.py
+ENV FLASK_RUN_HOST=0.0.0.0
+RUN apk add --no-cache gcc musl-dev linux-headers
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
+EXPOSE 5000
+COPY . .
+CMD ["flask", "run"]
+```
+
+
+
+3 Docker-compose yaml文件（定义所有的服务，需要的环境,web,redis）完整的上线服务
+
+```yml
+version: "3.9"
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+  redis:
+    image: "redis:alpine"
+```
+
+
+
+4 启动compose项目（docker-compose up）
+
+```shell
+Successfully built 5d886456c571
+Successfully tagged composetest_web:latest
+WARNING: Image for service web was built because it did not already exist. To rebuild this image you must use `docker-compose build` or `docker-compose up --build`.
+Creating composetest_web_1   ... done
+Creating composetest_redis_1 ... done
+Attaching to composetest_web_1, composetest_redis_1
+redis_1  | 1:C 23 Nov 2021 11:39:56.781 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+redis_1  | 1:C 23 Nov 2021 11:39:56.781 # Redis version=6.2.6, bits=64, commit=00000000, modified=0, pid=1, just started
+redis_1  | 1:C 23 Nov 2021 11:39:56.781 # Warning: no config file specified, using the default config. In order to specify a config file use redis-server /path/to/redis.conf
+redis_1  | 1:M 23 Nov 2021 11:39:56.782 * monotonic clock: POSIX clock_gettime
+redis_1  | 1:M 23 Nov 2021 11:39:56.785 # Warning: Could not create server TCP listening socket ::*:6379: unable to bind socket, errno: 97
+redis_1  | 1:M 23 Nov 2021 11:39:56.786 * Running mode=standalone, port=6379.
+redis_1  | 1:M 23 Nov 2021 11:39:56.786 # WARNING: The TCP backlog setting of 511 cannot be enforced because /proc/sys/net/core/somaxconn is set to the lower value of 128.
+redis_1  | 1:M 23 Nov 2021 11:39:56.786 # Server initialized
+redis_1  | 1:M 23 Nov 2021 11:39:56.786 # WARNING overcommit_memory is set to 0! Background save may fail under low memory condition. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and            then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+redis_1  | 1:M 23 Nov 2021 11:39:56.787 * Ready to accept connections
+web_1    |  * Serving Flask app 'app.py' (lazy loading)
+web_1    |  * Environment: production
+web_1    |    WARNING: This is a development server. Do not use it in a production deployment.
+web_1    |    Use a production WSGI server instead.
+web_1    |  * Debug mode: off
+web_1    |  * Running on all addresses.
+web_1    |    WARNING: This is a development server. Do not use it in a production deployment.
+web_1    |  * Running on http://172.20.0.2:5000/ (Press CTRL+C to quit)
+web_1    | 10.219.100.249 - - [23/Nov/2021 11:40:15] "GET / HTTP/1.1" 200 -
+web_1    | 10.219.100.249 - - [23/Nov/2021 11:40:15] "GET /favicon.ico HTTP/1.1" 404 -
+web_1    | 10.219.100.249 - - [23/Nov/2021 11:40:18] "GET / HTTP/1.1" 200 -
+
+```
+
+
+
+流程；
+
+1 创建网络
+
+2 执行Doceker-compose.yml
+
+3 启动服务
+
+Docker-compose up
+
+Creating composetest_web_1   ... done
+Creating composetest_redis_1 ... done
+
+>  docker ps
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker ps
+CONTAINER ID   IMAGE                                      COMMAND                  CREATED         STATUS             PORTS                          NAMES
+13c92a071991   composetest_web                            "flask run"              9 minutes ago   Up 9 minutes       0.0.0.0:5000->5000/tcp         composetest_web_1
+b66b657bcbc8   redis:alpine                               "docker-entrypoint.s…"   9 minutes ago   Up 9 minutes       6379/tcp                       composetest_redis_1
+
+```
+
+> docker images
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker images
+REPOSITORY                    TAG                            IMAGE ID       CREATED          SIZE
+composetest_web               latest                         5d886456c571   10 minutes ago   183MB
+```
+
+> docker service ls
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker service ls  #表示不是一个
+Error response from daemon: This node is not a swarm manager. Use "docker swarm init" or "docker swarm join" to connect this node to swarm and try again.
+```
+
+```python
+默认的服务名 文件名_服务名_num
+多个服务器,集群，A B _num 副本数量
+```
+
+集群状态.服务都不可能只有一个实例，弹性
+
+网络规则
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network ls
+NETWORK ID     NAME                  DRIVER    SCOPE
+938e53d6b996   bridge                bridge    local
+dc0e6b553ff8   composetest_default   bridge    local  # 自定义的网络 
+daa720d57435   host                  host      local
+e0d76bb82b39   none                  null      local
+```
+
+docker-compose里面启动的服务都在一个网络里面，那就可以通过服务名字来访问
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network inspect composetest_default
+[
+    {
+        "Name": "composetest_default",
+        "Id": "dc0e6b553ff84fd1a30fbd0e9e4032a79f945a0d36e1f7a5dbadb99d61302c78",
+        "Created": "2021-11-23T19:39:33.355567375+08:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+                {
+                    "Subnet": "172.20.0.0/16",
+                    "Gateway": "172.20.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": true,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        # 该网络下的服务
+        "Containers": {
+            "13c92a0719916dc7085213a8b9fd4e0b3a92a71afe6d59d5072a5209ea4c4a7f": {
+                "Name": "composetest_web_1",
+                "EndpointID": "5f11cc7c7ac027db2fa3a874cb1e070c08c48b76bc5fa38c27b991ab91cd1293",
+                "MacAddress": "02:42:ac:14:00:02",
+                "IPv4Address": "172.20.0.2/16",
+                "IPv6Address": ""
+            },
+            "b66b657bcbc8e2ff135e5bbd8f82f554818fe052c09d515bb6de3752fabf6a36": {
+                "Name": "composetest_redis_1",
+                "EndpointID": "1ab5f994ee078399b061ceef2f9fc89e0377248bf357a71acd263e6b7bc4ed3d",
+                "MacAddress": "02:42:ac:14:00:03",
+                "IPv4Address": "172.20.0.3/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {
+            "com.docker.compose.network": "default",
+            "com.docker.compose.project": "composetest",
+            "com.docker.compose.version": "1.29.2"
+        }
+    }
+]
+
+```
+
+在同一网络下，我们可以直接服务名访问
+
+停止:docker-compose down或者ctrl+c
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai/composetest# docker-compose down
+Stopping composetest_web_1   ... done
+Stopping composetest_redis_1 ... done
+Removing composetest_web_1   ... done
+Removing composetest_redis_1 ... done
+Removing network composetest_default
+```
+
+以前是单个docker run启动容器
+
+docker-compose可以一键启动服务，一键停止服务
+
+#### Docker小结
+
+1 Docker镜像
+
+2 DockerFile构建镜像
+
+3 Docker-compose启动项目
+
+4 Docker网络相关
+
+### yaml规则
+
+docker-compose.yaml核心
+
+地址：https://docs.docker.com/compose/compose-file/
+
+```shell
+# 3层
+version:"" # 版本
+service: # 服务
+	服务1: web
+		# 服务配置
+		build
+		images
+		network
+		...
+	服务2:redis
+	服务3:mysql
+# 其他配置 网络/卷
+volumns:
+networks:
+configs:
+		
+```
+
+#### demo
+
+```yaml
+version: "3.9"
+services:
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379"
+    networks:
+      - frontend
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+
+  db:
+    image: postgres:9.4
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - "node.role==manager"
+
+  vote:
+    image: dockersamples/examplevotingapp_vote:before
+    ports:
+      - "5000:80"
+    networks:
+      - frontend
+    depends_on:
+      - redis
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 2
+      restart_policy:
+        condition: on-failure
+
+  result:
+    image: dockersamples/examplevotingapp_result:before
+    ports:
+      - "5001:80"
+    networks:
+      - backend
+    depends_on:
+      - db
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+
+  worker:
+    image: dockersamples/examplevotingapp_worker
+    networks:
+      - frontend
+      - backend
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels: [APP=VOTING]
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints:
+          - "node.role==manager"
+
+  visualizer:
+    image: dockersamples/visualizer:stable
+    ports:
+      - "8080:8080"
+    stop_grace_period: 1m30s
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    deploy:
+      placement:
+        constraints:
+          - "node.role==manager"
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  db-data:
+```
+
+多写，多看yaml文件
+
+### 开源项目
+
+#### 博客
+
+下载博客，配置数据库相关，配置......
+
+compose直接部署
+
+地址：https://docs.docker.com/samples/wordpress/
+
+1 下载项目
+
+```shell
+mkdir my_wordpress/
+cd my_wordpress/
+```
+
+2 准备DockerFile文件(镜像可以不使用)
+
+3 编写docker-compose.yml
+
+```shell
+version: "3.9"
+    
+services:
+  db:
+    image: mysql:5.7
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: somewordpress
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    
+  wordpress:
+    depends_on:
+      - db
+    image: wordpress:latest
+    volumes:
+      - wordpress_data:/var/www/html
+    ports:
+      - "8000:80"
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+volumes:
+  db_data: {}
+  wordpress_data: {}
+```
+
+
+
+4 直接启动
+
+```shell
+docker-compose up 
+docker-compose up -d 后台启动
+docker-compose dowm 停止服务
+docker-compose build 重新构建
+```
+
+### 实战
+
+1 编写服务
+
+2 dockerfile构建镜像
+
+3 docker-compose.yml编排项目
+
+4 丢到服务器 docker-compose up
+
+小结：
+
+未来项目只要有docker-compose文件，按照这个规则，启动编排容器,有则可以直接启动
+
+#### 启动一个后端服务的docker-compose.yml
+
+```yml
+version: "3.9"  # 版本
+
+services: # 服务
+
+  service:  # 后端服务
+    build:  # 使用Dockerfile创建
+      context: . # dockerfile文件所在的路径
+      dockerfile: Dockerfile-service # dockerfile文件的名字
+      target: service_demo # 镜像名字
+    container_name: mtl_public_service_1 # 镜像启动后的容器名字
+    ports: # 端口映射
+      - "1129:8006"
+    volumes: # 容器卷
+      - /home/duanxingcai/mtl_public/:/www/
+    networks: # 链接的网络
+      - mtl_public
+    depends_on: # 控制服务启动的孙旭
+      - redis
+      - mongo
+      - minio
+
+  client:   # 前端服务
+    build:  # 使用dockerfile构建镜像
+      context: ..  # dockerfile的文件位置
+      dockerfile: Dockerfile-client # dockerfile的文件名字
+      target: client_demo # 镜像名字
+    container_name: mtl_public_client_1 # 启动后的容器名字
+    ports: # 端口映射
+      - "1130:86"
+    volumes: # 数据卷挂载
+      - /home/duanxingcai/dist:/usr/share/nginx/csm/
+    networks: # 网络配置
+      - mtl_public
+
+  redis: # redis服务
+    container_name: mtl_redis # 容器名字
+    image: library/redis:latest # 使用的镜像版本
+    restart: always # 总是重启
+    command: redis-server /etc/redis.conf # 启动容器
+    ports: # 端口映射
+      - "6380:6379"
+    volumes: # 数据卷挂载
+      - /home/duanxingcai/redis_data:/data
+      - /home/duanxingcai/redis_data/redis.conf:/etc/redis.conf
+    networks: # 网络配置
+      - mtl_public
+
+  mongo: # 服务名字
+    image: mongo:latest # 镜像名字
+    restart: always # 总是重启
+    container_name: mtl_mongo # 容器名字
+    volumes: # 数据卷挂载
+      - /home/duanxingcai/mongo_data/db:/data/db
+      - /home/duanxingcai/mongo_data/log:/var/log/mongodb
+    ports: # 端口映射
+      - "27018:27017"
+    networks: # 网络配置
+      - mtl_public
+#    environment: # 环境配置
+#      MONGO_INITDB_ROOT_USERNAME: admin
+#      MONGO_INITDB_ROOT_PASSWORD: admin
+
+
+  minio: # 服务名字
+    container_name: mtl_minio # 容器名字
+    image: minio/minio:RELEASE.2021-06-17T00-10-46Z # 镜像版本
+    command: server /data # 启动容器
+    restart: always # 总是重启
+    ports: # 端口映射
+      - "9001:9000"
+    volumes: # 数据卷挂载
+      - /home/duanxingcai/minio_data:/data
+      - /home/duanxingcai/minio_data/config:/root/.minio
+    networks: # 网络配置
+      - mtl_public
+#    environment: # 环境配置
+#      MINIO_ACCESS_KEY: "username"
+#      MINIO_SECRET_KEY: "password"
+
+networks: # 定义网络
+  mtl_public:
+
+```
+
+#### 目录层级
+
+```shell
+root@mtl-unknown659404:/home/duanxingcai# ls
+Dockerfile-client  conf.d  dist  minio_data  mongo_data  mtl_public  redis_data  update_script
+root@mtl-unknown659404:/home/duanxingcai# cd mtl_public/
+root@mtl-unknown659404:/home/duanxingcai/mtl_public# ls
+Dockerfile-service  common  docker-compose.yml  manage.py  mtl_public  pid.wsgi  project_manage  requirements.txt  static  user  utils  uwsgi.ini  uwsgi.log
+```
+
+
+
+### 总结
+
+#### 工程、服务、容器
+
+工程就是一个项目
+
+服务就是后端，前端，redis,celery等
+
+容器是一个一个服务
+
+## Docker可视化工具
+
+#### 1 安装Portainer
+
+```shell
+# 拉取
+docker pull portainer/portainer
+# 启动
+docker run -d -p 8000:8000 -p 9000:9000 --name=portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer
+```
+
+
+
 ## Docker Swarm
 
+集群的方式部署，单机是自己的操作4台阿里云服务器, 2 4g
+
+> ### 第一步买4台服务器 2核4G
+
+创建实例
+
+![](.\img\POPO20211129-145056.png)
+
+选择付费模式和地区
+
+![](.\img\POPO20211129-145311.png)
+
+购买类型大小及数量
+
+![](.\img\POPO20211129-145450.png)
+
+选择镜像及版本
+
+![](.\img\POPO20211129-145633.png)
+
+配置安全组
+
+![](.\img\POPO20211129-145802.png)
+
+配置自定义密码
+
+![](.\img\POPO20211129-145918.png)
+
+分组不用动直接下一步再到确认订单就好了
+
+![](.\img\POPO20211129-150059.png)
+
+### 4台机器安装docker
+
+```python
+# xshell有个发送键到所有会话
+查看安装方案
+```
+
+### 概述
+
+地址：https://docs.docker.com/engine/swarm/
+
+#### 工作模式
+
+Docker Engine 1.12 introduces swarm mode that enables you to create a cluster of one or more Docker Engines called a swarm. A swarm consists of one or more nodes: physical or virtual machines running Docker Engine 1.12 or later in swarm mode.
+
+There are two types of nodes: [**managers**](https://docs.docker.com/engine/swarm/how-swarm-mode-works/nodes/#manager-nodes) and [**workers**](https://docs.docker.com/engine/swarm/how-swarm-mode-works/nodes/#worker-nodes).
+
+有管理节点和工作节点
+
+操作都在manager里面
+
+Raft一致性算法
+
+![](.\img\POPO20211129-151313.png)
+
+### 集群搭建
+
+```shell
+# 搭建之后会多一个网络
+root@mtl-unknown659404:/home/wb.duanxingcai# docker network ls
+NETWORK ID     NAME                    DRIVER    SCOPE
+938e53d6b996   bridge                  bridge    local
+daa720d57435   host                    host      local
+e0d76bb82b39   none                    null      local
+```
+
+基本操作
+
+![](.\img\POPO20211129-151814.png)
+
+集群初始化,就是告诉别人我在哪,包括私网和公网
+
+![](.\img\POPO20211129-151938.png)
+
+私网地址
+
+![](.\img\POPO20211129-152116.png)
+
+```shell
+# 初始化一个集群
+docker swarm init --advertise-addr 172.24.82.179
+# 得到命令 join
+docker swarm join
+# 获取令牌 一个是manage/worker
+# 加入一个从节点
+docker swarm join --token SWARM-XXXXX
+# 生成一个命令
+docker swarm join worke
+docker swarm join manager
+# 查看节点
+docker node ls
+```
+
+![](.\img\POPO20211129-152349.png)
+
+加入一个节点
+
+![](.\img\POPO20211129-152618.png)
+
+共加入了3节点，3主一从
+
+### Raft一致性算法
+
+双主双从，其他节点能不能用，
+
+Raft就是保证大多数节点>1才可以使用，所以至少>3
+
+实验:
+
+1 将一个主节点的docker宕机，那么双主双从的情况下取法选举出另一个主节点，所以无法使用
+
+```shell
+docker swarm leave # 离开节点
+```
+
+![](.\img\POPO20211129-154125.png)
+
+2 如果是三台主机，挂了一台，还有2台可以选举出一台领导主机，还可以继续使用
+
+### 体会
+
+弹性，负载，扩缩容
+
+告别docker run
+
+docker-compose 启动项目
+
+> ### 集群:swarm docker service
+
+k8s service pods
+
+集群:swarm docker serivce
+
+容器=>服务
+
+容器=>服务=>副本
+
+redis服务=>10个副本
+
+![](.\img\POPO20211129-155858.png)
+
+灰度发布:金丝雀发布!
+
+----
+
+```shell
+# 创建一个服务
+docker service create -p 8888:80 --name my-nginx nginx
+# 区别 docker run是一个容器启动 没有扩缩容功能
+docker run 
+# 一个服务启动 具有扩缩容功能
+docker service 
+```
+
+![](.\img\POPO20211129-160155.png)
+
+
+
+查看基本信息,副本信息 REOLICAS:副本信息
+
+![](.\img\POPO20211129-160357.png)
+
+创建三个副本/也就是动态扩缩容
+
+![](.\img\POPO20211129-160721.png)
+
+
+
+服务在任意的节点都可以访问，服务可以在动态的扩展，伸缩
+
+服务的高可用，任何企业，云
+
+```shell
+# 另一个扩缩容命令 扩缩容5份
+docker service scale xxx=5
+# 移除
+docker service rm xxx
+```
+
+### 概念总结
+
+#### swarm
+
+集群的管理和编排,docker可以初始化一个swarm集群，其他节点可以加入(管理，工作者)
+
+#### Node
+
+其实就是一个docker节点，多个节点就组成了一个网络
+
+#### service
+
+任务，可以在管理节点和工作节点来运行，核心,用户访问就是他
+
+#### Task
+
+容器内的命令，细节任务
+
+![](.\img\POPO20211129-162058.png)
+
+#### 内部原理
+
+![](.\img\POPO20211129-162154.png)
+
+命令->manager->api->调度->工作节点(创建容器,自动创建)
+
+> ### 服务副本与全局服务
+
+![](.\img\POPO20211129-162600.png)
+
+调整service以什么方式运行
+
+```shell
+--mode string
+Service mode(replicated or global)(default "replicated")
+# 指定副本下
+docker service create --mode replicated --name mytom tomcat:7
+# 指定全局下
+docker service create --mode global --name haha alpine ping baidu.com
+
+```
+
+拓展:网络模式:"PublicMode":"ingress"
+
+Swarm:
+
+Overlay:
+
+ingress:特殊的Overlay网络，负载均衡功能
+
+虽然docker在4台机器上，单实际是同一个,相互绑定的ip
+
+![](.\img\POPO20211129-163358.png)
+
+## Docker Stack
+
+docker-compose 单机部署项目
+
+Docker Stack部署，集群部署
+
+```shell
+# 单机
+docker-compose up -d xxx.yml
+# 集群
+docker stack deploy xxx.yml
+
+
+root@mtl-unknown659404:/home/wb.duanxingcai# docker stack --help
+
+Usage:  docker stack [OPTIONS] COMMAND
+
+Manage Docker stacks
+
+Options:
+      --orchestrator string   Orchestrator to use (swarm|kubernetes|all)
+
+Commands:
+  deploy      Deploy a new stack or update an existing stack  # 后面接一个文件
+  ls          List stacks
+  ps          List the tasks in the stack
+  rm          Remove one or more stacks
+  services    List the services in the stack
+
+Run 'docker stack COMMAND --help' for more information on a command.
+```
+
+### 案例
+
+```yml
+version: "3.9"
+
+services:
+
+  service:
+    image: mtl_demo_service:latest
+    volumes:
+    - /home/wb.duanxingcai/mtl_public:/www/
+    networks:
+      - mtl_public
+    ports:
+    - "1129:8006"
+    deploy:
+      replicas: 1
+      # 将挂载的目录放在管理节点上
+      placement:
+        constraints:
+          - node.role == manager
+
+  client:
+    image: mtl_demo_client:latest
+    volumes:
+    - /home/wb.duanxingcai/dist/:/usr/share/nginx/csm/
+    networks:
+      - mtl_public
+    ports:
+    - "1130:86"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+networks:
+  mtl_public:
+```
+
+### 注意事项
+
+```python
+# 使用docker service scale xxx=2
+出现异常 "invalid mount config for type…"
+# 每台服务器都必须有该镜像，不然只能在有这个镜像的地方创建服务
+# 数据卷挂载也是，当有数据卷挂载时需要提前创建要挂载的目录
+# 镜像不能想docker-compose一样有build命令 需要想有镜像才行
+```
+
+### 常用命令
+
+启动项目
+
+```shell
+docker stack -c deploy docker-compose.yml name
+```
+
+查看服务
+
+```shell
+docker service ps 服务名
+```
+
+删除服务
+
+```shell
+docker service rm 服务名
+```
+
+更新镜像
+
+```shell
+docker service update 服务名
+
+# 更新服務
+docker service update --image 新镜像 正在启动的镜像
+# 更新端口
+docker service update --publish-rm 8080:5000 --publish-add 8088:5000 web
+docker service ps web
+docker service  web
+```
+
+扩缩容
+
+```shell
+# 两个副本
+docker service scale 服务名=2
+```
+
+回退
+
+```shell
+docker service rollback 镜像名字
+```
+
+
+
+
+
+## Docker Secret
+
+安全，证书相关
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker secret --help
+
+Usage:  docker secret COMMAND
+
+Manage Docker secrets
+
+Commands:
+  create      Create a secret from a file or STDIN as content
+  inspect     Display detailed information on one or more secrets
+  ls          List secrets
+  rm          Remove one or more secrets
+
+Run 'docker secret COMMAND --help' for more information on a command.
+
+```
+
+## Docker Config
+
+docker 配置相关
+
+```shell
+root@mtl-unknown659404:/home/wb.duanxingcai# docker config --help
+
+Usage:  docker config COMMAND
+
+Manage Docker configs
+
+Commands:
+  create      Create a config from a file or STDIN
+  inspect     Display detailed information on one or more configs
+  ls          List configs
+  rm          Remove one or more configs
+
+Run 'docker config COMMAND --help' for more information on a command.
+
+```
+
+Go语音，必须了解，java
+
 ## CI\CD Jenkins
+

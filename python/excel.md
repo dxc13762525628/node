@@ -109,5 +109,65 @@ class ExcelOpt:
         self.wb.save('test.xlsx')
 ```
 
+## 绝对定位图片
+
+```python
+wb = Workbook()
+ws = wb.active
+
+img = Image(imgPath)  # 缩放图片
+ws.column_dimensions['C'].width = img.width * 0.14  # 修改列A的宽
+ws.row_dimensions[2].height = img.height * 0.78  # 修改列第1行的高
+
+# 插入的第一张
+x, y = 9 * 2 // 0.14, 13.5 // 0.65
+w, h = img.width, img.height
+
+p2e = pixels_to_EMU  # openpylx自带的像素转EMU
+pos = XDRPoint2D(p2e(x), p2e(y))  # 设置绝对位置
+size = XDRPositiveSize2D(p2e(w), p2e(h))  # 图片大小
+anchor = AbsoluteAnchor(pos=pos, ext=size)
+
+ws.add_image(img, anchor=anchor)
+
+wb.save('test.xlsx')  # 新的结果保存输出
+```
+
+## 相对定位图片
+
+```python
+wb = Workbook()
+ws = wb.active
+
+# 第一张图片 设置图片宽高
+img_width = 120
+img_height = 160
+
+img = Image(imgPath)  # 缩放图片
+img.width = img_width
+img.height = img_height
+
+# 高大于宽
+# 设置宽高 从1开始
+ws.column_dimensions['C'].width = img.width * 0.2  # 修改列A的宽
+ws.row_dimensions[6].height = img.height * 0.78  # 修改列第1行的高
+
+
+c2e = cm_to_EMU
+cellh = lambda x: c2e((x * 49.77) / 99)
+cellw = lambda x: c2e((x * (18.65 - 1.71)) / 10)
+column = 2
+coloffset = cellw(0.15)
+row = 5
+rowoffset = cellh(1)
+marker = AnchorMarker(col=column, colOff=coloffset, row=row, rowOff=rowoffset)
+p2e = pixels_to_EMU
+h, w = img.height, img.width
+size = XDRPositiveSize2D(p2e(h), p2e(w))
+img.anchor = OneCellAnchor(_from=marker, ext=size)
+ws.add_image(img)
+wb.save('test.xls')
+```
+
 
 
