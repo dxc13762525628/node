@@ -930,6 +930,7 @@ ENTRYPOINT			# 指定这个容器启动的时候要运行的命令，可追加�
 ONBUILD				# 当构构建一个被继承DockerFile这个时候，会运行ONBUILD的指令
 COPY				# 将文件拷贝到镜像中
 ENV					# 构建的时候设置环境变量
+ARG					# 构建的时候传递的参数 --build-arf 参数名=xxx(文件)
 ```
 
 ### 实战测试

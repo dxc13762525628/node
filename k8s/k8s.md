@@ -1048,3 +1048,265 @@ Grafana
 配置数据源，使用prometheus
 
 模板默认有个315
+
+## 高可用集群
+
+### 搭建框架
+
+![](.\img\POPO20211206-102017.png)
+
+> ### 基本过程
+
+1 部署keepalived (主节点)
+
+```shell
+# 1 部署keepalived (主节点)
+yum install -y conntrack-tools libseccomp libtool-ltdl
+yum install -y keepalived 
+
+# 2 修改配置文件
+xxx
+# 3 启动和检查
+systemctl start keepalived.service
+# 设置开机启动
+systemctl enable keepalived.service
+# 查看启动状态
+systemctl status keepalived.service
+
+# 查看网卡
+ip a ens 33
+```
+
+
+
+2 部署haproxy(主节点)
+
+```shell
+# 安装
+yum install -y haproxy
+# 配置
+xxx
+# 3 启动和检查
+systemctl start haproxy
+# 设置开机启动
+systemctl enable haproxy
+# 查看启动状态
+systemctl status haproxy
+# 检查端口
+netstat -lntup|grep haproxy
+```
+
+3 安装docker,k8s,etcd,网络插件(所有节点)
+
+```shell
+# 安装docker 
+xxx
+# 安装k8s
+```
+
+4 初始化操作(一个主节点)
+
+首先在具有vip的地方操作
+
+```shell
+# 创建文件夹
+mkdir /usr/local/kubernetes/manifests -p
+# 到manifests目录
+cd /usr/local/kubernetes/manifests/
+# 新建yaml文件
+vi kubeadm-config.yaml
+```
+
+kubeadm-config.yaml
+
+```shell
+apiServer:
+  certSANs:
+    - master1
+    - master2
+    - master.k8s.io
+    - 192.168.44.158
+    - 192.168.44.155
+    - 192.168.44.156
+    - 127.0.0.1
+  extraArgs:
+    authorization-mode: Node,RBAC
+  timeoutForControlPlane: 4m0s
+apiVersion: kubeadm.k8s.io/v1beta1
+certificatesDir: /etc/kubernetes/pki
+clusterName: kubernetes
+controlPlaneEndpoint: "master.k8s.io:16443"
+controllerManager: {}
+dns: 
+  type: CoreDNS
+etcd:
+  local:    
+    dataDir: /var/lib/etcd
+imageRepository: registry.aliyuncs.com/google_containers
+kind: ClusterConfiguration
+kubernetesVersion: v1.16.3
+networking: 
+  dnsDomain: cluster.local  
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.1.0.0/16
+scheduler: {}
+```
+
+在有vip的节点执行
+
+```shell
+kubeadm init --config kubeadm-config.yaml
+```
+
+按照提示添加环境变量
+
+```shell
+# 执行下方命令
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+# 查看节点
+kubectl get nodes
+# 查看pod
+kubectl get pods -n kube-system
+```
+
+提示保存
+
+``` shell
+kubeadm join master.k8s.io:16443 --token jv5z7n.3y1zi95p952y9p65 \
+    --discovery-token-ca-cert-hash sha256:403bca185c2f3a4791685013499e7ce58f9848e2213e27194b75a2e3293d8812 \
+    --control-plane # master节点才有
+```
+
+查看状态
+
+```shell
+# 查看集群状态
+kubectl get cs
+# 查看pod
+kubectl get pods -n kube-system
+```
+
+安装网络
+
+```shell
+# 创建文件夹
+mkdir flannel
+cd flannel
+# 下载yaml文件
+wget -c https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+```
+
+安装flannel网络
+
+```shell]
+kubectl apply -f kube-flannel.yml 
+```
+
+检查
+
+```shell
+kubectl get pods -n kube-system
+```
+
+
+
+5 添加节点好集群中去
+
+master2加入
+
+```shell
+kubeadm join master.k8s.io:16443 --token ckf7bs.30576l0okocepg8b     --discovery-token-ca-cert-hash sha256:19afac8b11182f61073e254fb57b9f19ab4d798b70501036fc69ebef46094aba --control-plane
+```
+
+检查状态
+
+```
+kubectl get node
+
+kubectl get pods --all-namespaces
+```
+
+node节点
+
+```
+kubeadm join master.k8s.io:16443 --token ckf7bs.30576l0okocepg8b     --discovery-token-ca-cert-hash sha256:19afac8b11182f61073e254fb57b9f19ab4d798b70501036fc69ebef46094aba
+```
+
+**集群网络重新安装，因为添加了新的node节点**
+
+检查状态
+
+```
+kubectl get node
+kubectl get pods --all-namespaces
+```
+
+## 测试kubernetes集群
+
+在Kubernetes集群中创建一个pod，验证是否正常运行：
+
+```
+# 创建nginx deployment
+kubectl create deployment nginx --image=nginx
+# 暴露端口
+kubectl expose deployment nginx --port=80 --type=NodePort
+# 查看状态
+kubectl get pod,svc
+```
+
+然后我们通过任何一个节点，都能够访问我们的nginx页面
+
+## 部署java项目
+
+1 容器交付流程
+
+> 开发阶段
+
+```shell
+开发代码
+测试
+编写dockerfile制作镜像
+```
+
+> 持续集成
+
+```shell
+代码编译打包
+制作镜像
+上传仓库
+```
+
+> 应用部署
+
+```shell
+环境准备
+Pod
+Service
+Ingress
+```
+
+> 运维工作
+
+```shell
+监控
+故障排查
+升级优化
+```
+
+2 k8s部署java流程
+
+```shell
+# 先生成yaml
+kubectl create depoyment 镜像名字 --image=拉去下来的镜像名字 --dry-run -o yaml > xxx.yaml
+# 在启动yaml文件
+kubectl apply -f xxx.yaml
+# 查看
+kubectl get pods
+# 对外暴露端口
+kubectl expose deployment 镜像 port=xxx --target-port=8000 --type=NodePoer
+# 查看
+kubectl get svc
+```
+
