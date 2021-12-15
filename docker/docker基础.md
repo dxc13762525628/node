@@ -2761,13 +2761,66 @@ docker service rm xxx
 
 集群的管理和编排,docker可以初始化一个swarm集群，其他节点可以加入(管理，工作者)
 
+> 常用命令
+
+```shell
+docker swarm init				初始化集群
+docker swarm join-token worker	查看工作节点的 token
+docker swarm join-token manager	查看管理节点的 token
+docker swarm join				加入集群
+```
+
+
+
 #### Node
 
 其实就是一个docker节点，多个节点就组成了一个网络
 
+> 常用命令
+
+```shell
+# 查看集群所有节点
+docker node ls
+# 查看当前节点所有任务
+docker node ps	
+# 删除节点（-f强制删除）
+docker node rm 节点名称|节点ID	
+# 查看节点详情
+docker node inspect 节点名称|节点ID	
+# 节点降级，由管理节点降级为工作节点
+docker node demote 节点名称|节点ID
+# 节点升级，由工作节点升级为管理节点
+docker node promote 节点名称|节点ID
+# 更新节点
+docker node update 节点名称|节点ID	
+```
+
+
+
 #### service
 
 任务，可以在管理节点和工作节点来运行，核心,用户访问就是他
+
+> 常用命令
+
+```shell
+# 创建服务
+docker service create	
+# 查看所有服务
+docker service ls	
+# 查看服务详情
+docker service inspect 服务名称|服务ID	
+# 查看服务日志
+docker service logs 服务名称|服务ID	
+# 删除服务（-f强制删除）
+docker service rm 服务名称|服务ID	
+# 设置服务数量
+docker service scale 服务名称|服务ID=n	
+# 更新服务
+docker service update 服务名称|服务ID	
+```
+
+
 
 #### Task
 
