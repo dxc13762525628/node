@@ -3039,3 +3039,12 @@ Go语音，必须了解，java
 
 ## CI\CD Jenkins
 
+![img](chrome://fileicon/?path=C%3A%5CUsers%5Cwb.duanxingcai%5CDownloads%5C2b5672e7POPO20211120-131719.png&scale=1x)
+
+[2b5672e7POPO20211120-131719.png](http://mtl.minio.service.netease.com/minio/download/public/2b5672e7POPO20211120-131719.png?token=eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiJtaW5pb2FkbWluIiwiZXhwIjoxNjQxMjgzNzI4LCJzdWIiOiJtaW5pb2FkbWluIn0.Dsm60RH-1slLNFiHBMe8p9m29u6RCPh6G6ASQtFwecnkMpn_Gl7IIzemghBiBNDeFSyM3EROof3A9bVv5vL4wg)
+
+[http://mtl.minio.service.netease.com/minio/download/public/2b5672e7POPO20211120-131719.png?token=eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiJtaW5pb2FkbWluIiwiZXhwIjoxNjQxMjgzNzI4LCJzdWIiOiJtaW5pb2FkbWluIn0.Dsm60RH-1slLNFiHBMe8p9m29u6RCPh6G6ASQtFwecnkMpn_Gl7IIzemghBiBNDeFSyM3EROof3A9bVv5v](http://mtl.minio.service.netease.com/minio/download/public/2b5672e7POPO20211120-131719.png?token=eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiJtaW5pb2FkbWluIiwiZXhwIjoxNjQxMjgzNzI4LCJzdWIiOiJtaW5pb2FkbWluIn0.Dsm60RH-1slLNFiHBMe8p9m29u6RCPh6G6ASQtFwecnkMpn_Gl7IIzemghBiBNDeFSyM3EROof3A9bVv5vL4wg)
+
+在文件夹中显示
+
+
