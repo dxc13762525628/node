@@ -56,3 +56,44 @@ days = (des1 - des2).days  # 449
 ```
 
 ## pymongo
+
+jupter notebook
+
+```python
+快捷键
+shift + enter = 执行并到下一行
+ctrl + enter = 执行但是不到下一行
+
+jupyter notebook
+
+命令模式 按ESC进入
+Y cell切换到Code模式
+M cell切换到Markdown模式
+A 在当前cell的上面添加cell
+B 在当前cell的上面添加cell
+双击D 删除当前cell
+Z 回退
+L 为当前cell加上行号
+Ctrl+Shift+P 对话框输入命令运行
+ctrl + home 快速跳转到首个cell 	
+ctrl + end 快速跳转到最后一个cell
+
+编辑模式
+多光标操作 ctrl键点击鼠标
+回退 ctrl +z
+重做 ctrl + y
+补全代码 变量 方法后跟 tab键
+为一行或者多行添加注释 ctrl+/
+屏蔽输出信息 最后一条语句加;
+
+pip install jupyter_contrib_nbextensions
+jupyter contrib nbextension install --user --skip-running-check
+pip install autopep8
+
+/home/wb.duanxingcai/mongoDump.sh
+
+find /home/mongo_master/data/mongo_data -mtime +10 -name "*_*" -exec ls {} \;
+```
+
+
+
