@@ -2804,7 +2804,7 @@ docker node update 节点名称|节点ID
 > 常用命令
 
 ```shell
-# 创建服务
+# 创建服务 后面与普通创建是一样的没有-c参数
 docker service create	
 # 查看所有服务
 docker service ls	
@@ -3046,5 +3046,4 @@ Go语音，必须了解，java
 [http://mtl.minio.service.netease.com/minio/download/public/2b5672e7POPO20211120-131719.png?token=eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiJtaW5pb2FkbWluIiwiZXhwIjoxNjQxMjgzNzI4LCJzdWIiOiJtaW5pb2FkbWluIn0.Dsm60RH-1slLNFiHBMe8p9m29u6RCPh6G6ASQtFwecnkMpn_Gl7IIzemghBiBNDeFSyM3EROof3A9bVv5v](http://mtl.minio.service.netease.com/minio/download/public/2b5672e7POPO20211120-131719.png?token=eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiJtaW5pb2FkbWluIiwiZXhwIjoxNjQxMjgzNzI4LCJzdWIiOiJtaW5pb2FkbWluIn0.Dsm60RH-1slLNFiHBMe8p9m29u6RCPh6G6ASQtFwecnkMpn_Gl7IIzemghBiBNDeFSyM3EROof3A9bVv5vL4wg)
 
 在文件夹中显示
-
 
